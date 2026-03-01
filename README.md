@@ -1,6 +1,8 @@
-# Mistral Security Digest
+# Mistral AI Security Digest
 
 Automated daily email digest combining AI industry news and security vulnerability monitoring across your infrastructure stack. Powered by **Mistral AI** for formatting, **Perplexity** for real-time search, **OSV.dev** for structured CVE data, and **CVEProject/cvelistV5** for official CVE tracking.
+
+The monitored software list is fully customizable — add or remove any package, OS, or framework to match your own infrastructure.
 
 ---
 
@@ -155,7 +157,9 @@ Typical execution time: **~45–55 seconds**.
 ### Add/remove AI topics
 Edit `AI_TOPICS` list in `ai_news_digest.py`.
 
-### Add/remove monitored packages
+### Add/remove monitored software
+The default list covers common infrastructure (Ubuntu, Docker, Nginx, PHP, MariaDB, AWS, Azure, etc.), but you can add **any software** you use — databases, frameworks, CI/CD tools, cloud services, CMS platforms, or custom packages.
+
 - **OSV.dev packages**: Edit `OSV_TARGETS` — each entry is `(display_name, ecosystem, package)`. Verify the ecosystem and package name exist at [osv.dev](https://osv.dev).
 - **Perplexity-only targets**: Edit `PERPLEXITY_EXTRA_TARGETS` for packages not in OSV.dev (e.g., Windows 11).
 - **CVE keyword matching**: Edit `CVE_KEYWORDS` to add/remove keywords matched against cvelistV5 entries.
