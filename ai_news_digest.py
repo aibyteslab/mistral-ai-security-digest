@@ -15,8 +15,11 @@ Install deps:
   python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
 
 Environment variables (set in .env or export):
-  MISTRAL_API_KEY     = ...
-  SMTP_HOST           = smtp.gmail.com
+  MISTRAL_API_KEY      = os.environ.get("MISTRAL_API_KEY", "")
+MISTRAL_MODEL        = "mistral-large-latest"
+MISTRAL_SEARCH_MODEL = "mistral-small-latest"
+
+SMTP_HOST           = smtp.gmail.com
   SMTP_PORT           = 587
   SMTP_USER           = you@gmail.com
   SMTP_PASS           = your-app-password
