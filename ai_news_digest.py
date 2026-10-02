@@ -16,7 +16,6 @@ Install deps:
 
 Environment variables (set in .env or export):
   MISTRAL_API_KEY     = ...
-  PERPLEXITY_API_KEY  = pplx-...
   SMTP_HOST           = smtp.gmail.com
   SMTP_PORT           = 587
   SMTP_USER           = you@gmail.com
