@@ -64,7 +64,7 @@ log = logging.getLogger(__name__)
 
 MISTRAL_API_KEY    = os.environ.get("MISTRAL_API_KEY", "")
 
-MISTRAL_MODEL      = "mistral-large-latest"
+MISTRAL_MODEL        = "mistral-large-latest"\nMISTRAL_SEARCH_MODEL = "mistral-small-latest"
 
 SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
