@@ -64,7 +64,6 @@ log = logging.getLogger(__name__)
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 MISTRAL_API_KEY    = os.environ.get("MISTRAL_API_KEY", "")
-PERPLEXITY_API_KEY = os.environ.get("PERPLEXITY_API_KEY", "")
 
 MISTRAL_MODEL      = "mistral-large-latest"
 
@@ -74,8 +73,6 @@ SMTP_USER = os.environ.get("SMTP_USER", "")
 SMTP_PASS = os.environ.get("SMTP_PASS", "")
 ALERT_TO  = os.environ.get("ALERT_TO", "")
 
-PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions"
-PERPLEXITY_MODEL   = "sonar-pro"   # best for real-time search
 
 OSV_API = "https://api.osv.dev/v1"
 
@@ -105,7 +102,7 @@ OSV_TARGETS = [
     ("GCP / Google Cloud", "PyPI",      "google-cloud-storage"),
 ]
 
-# Additional targets for Perplexity search only (not in OSV.dev)
+# Additional targets for web search only (not in OSV.dev)
 # Additional web-search-only targets (not queried through OSV.dev)\nWEB_SEARCH_EXTRA_TARGETS = ["Windows 11"]
 
 # CVEProject/cvelistV5 — official CVE list updated hourly on GitHub
@@ -287,20 +284,24 @@ Only include confirmed, real vulnerabilities with sources."""
 
 # ── Mistral: Format Raw Data into HTML ────────────────────────────────────────
 
-def mistral_format_to_html(ai_news_raw: str, ai_citations: list,
-                            wp_raw: str, wp_citations: list,
-                            wp_cve_text: str,
-                            infra_raw: str, infra_citations: list,
-                            osv_html: str,
+def mistral_format_to_html(ai_news_result: dict, wp_result: dict, wp_cve_text: str,
+                            infra_result: dict, osv_html: str,
                             cve_list_text: str) -> tuple[str, str, str, str]:
-    """
-    Send raw web-search results + OSV.dev HTML + CVE List data to Mistral for formatting.
-    Mistral does NO searching here — pure formatting only.
-    Returns (ai_news_html, wordpress_html, infra_html, cve_html)
-    """
+    """Merge web research with structured vulnerability sources and format HTML."""
     log.info("Sending raw data to Mistral for HTML formatting...")
     client = Mistral(api_key=MISTRAL_API_KEY)
 
+    ai_news_raw = ai_news_result.get("text", "")
+    wp_raw = wp_result.get("text", "")
+    infra_raw = infra_result.get("text", "")
+
+    def source_list(result: dict) -> str:
+        refs = result.get("sources", [])
+        return "\n".join(f'- {r["title"]}: {r["url"]}' for r in refs) or "No source references returned."
+
+    ai_sources = source_list(ai_news_result)
+    wp_sources = source_list(wp_result)
+    infra_sources = source_list(infra_result)
     prompt = f"""You are an HTML email formatter. Convert the raw research data below into clean HTML sections.
 Do NOT search the web. Do NOT add any information not present in the raw data. Format only.
 
@@ -308,17 +309,14 @@ Do NOT search the web. Do NOT add any information not present in the raw data. F
 SECTION 1: RAW AI NEWS DATA:
 {ai_news_raw}
 
-AI NEWS SOURCE URLS:
-{ai_cite_str}
+WEB SEARCH REFERENCES:
+{ai_sources}
 
 ---
 SECTION 2: RAW WORDPRESS VULNERABILITY DATA:
 
 SOURCE A — Mistral Web Search:
 {wp_raw}
-
-Mistral Web Search source URLs:
-{wp_cite_str}
 
 SOURCE B — CVEProject/cvelistV5 (official CVE database, WordPress-related):
 {wp_cve_text}
@@ -328,9 +326,6 @@ SECTION 3: INFRASTRUCTURE VULNERABILITY DATA (from two sources)
 
 SOURCE A — Mistral Web Search results:
 {infra_raw}
-
-Mistral Web Search source URLs:
-{infra_cite_str}
 
 SOURCE B — OSV.dev structured API data (already formatted as HTML):
 {osv_html}
@@ -350,7 +345,7 @@ If no news for a topic:
 <h3>🔵 [Topic Name]</h3>
 <p class="no-news">No major news in the last 24 hours.</p>
 
-For the WordPress section, MERGE data from both Source A (Perplexity) and Source B (cvelistV5).
+For the WordPress section, MERGE data from both Source A (Mistral Web Search) and Source B (cvelistV5).
 Deduplicate: if the same CVE appears in both sources, show it once.
 Output:
 <h3>🔌 Plugins</h3>
@@ -367,7 +362,7 @@ Under each group:
 Or if none:
 <p class="no-news">No new vulnerabilities in the last 24 hours. ✓</p>
 
-For the Infrastructure section, MERGE data from both Source A (Perplexity) and Source B (OSV.dev).
+For the Infrastructure section, MERGE data from both Source A (Mistral Web Search) and Source B (OSV.dev).
 Deduplicate: if the same CVE or vulnerability appears in both sources, show it once.
 Group by package name (e.g. Ubuntu, Docker, n8n, PHP, etc.).
 For each package group:
@@ -788,31 +783,30 @@ def send_email(html_body: str) -> bool:
 def main():
     log.info("=== Daily Digest starting ===")
 
-    missing = [v for v in ["MISTRAL_API_KEY", "PERPLEXITY_API_KEY",
-                            "SMTP_USER", "SMTP_PASS", "ALERT_TO"]
+    missing = [v for v in ["MISTRAL_API_KEY", "SMTP_USER", "SMTP_PASS", "ALERT_TO"]
                if not os.environ.get(v)]
     if missing:
         log.error("Missing env vars: %s", ", ".join(missing))
         return
 
-    # Step 1: Mistral built-in web searches (real-time public web)
-    ai_news_raw,   ai_citations    = fetch_ai_news_raw()
-    wp_vulns_raw,  wp_citations    = fetch_wordpress_vulns_raw()
-    infra_raw,     infra_citations = fetch_infra_vulns_raw()
+    # Step 1: Mistral built-in web searches (public web)
+    ai_news_result = fetch_ai_news_raw()
+    wp_result = fetch_wordpress_vulns_raw()
+    infra_result = fetch_infra_vulns_raw()
 
     # Step 2: OSV.dev direct API (structured vulnerability data)
     osv_html = fetch_osv_section()
 
-    # Step 3: CVEProject/cvelistV5 (official CVE list, updated hourly)
+    # Step 3: CVEProject/cvelistV5 (official CVE list)
     cve_matches = fetch_cve_list_v5()
     wp_cve_text, infra_cve_text = split_cve_matches(cve_matches)
 
-    # Step 4: Mistral formats + merges everything into clean HTML
+    # Step 4: Mistral merges trusted structured sources + web research into HTML
     ai_news_html, wp_html, infra_html, cve_html = mistral_format_to_html(
-        ai_news_raw, ai_citations,
-        wp_vulns_raw, wp_citations,
+        ai_news_result,
+        wp_result,
         wp_cve_text,
-        infra_raw, infra_citations,
+        infra_result,
         osv_html,
         infra_cve_text,
     )
