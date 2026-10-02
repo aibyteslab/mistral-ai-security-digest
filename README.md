@@ -1,6 +1,6 @@
 # Mistral AI Security Digest
 
-Automated daily email digest combining AI industry news and security vulnerability monitoring across your infrastructure stack. Powered by **Mistral AI** for formatting, **Perplexity** for real-time search, **OSV.dev** for structured CVE data, and **CVEProject/cvelistV5** for official CVE tracking.
+Automated daily email digest combining AI industry news and security vulnerability monitoring across your infrastructure stack. Powered by **Mistral AI** for built-in web research and final synthesis, **OSV.dev** for structured vulnerability data, and **CVEProject/cvelistV5** for official CVE tracking.
 
 The monitored software list is fully customizable — add or remove any package, OS, or framework to match your own infrastructure.
 
@@ -11,7 +11,7 @@ The monitored software list is fully customizable — add or remove any package,
 The script orchestrates 5 data sources into a single HTML email, delivered daily via SMTP:
 
 ```
-Perplexity sonar-pro  →  AI news + WordPress vulns + Infra vulns (web search)
+Mistral Web Search    →  AI news + WordPress vulns + Infra vulns
 OSV.dev REST API      →  Structured CVE data for specific packages
 CVEProject/cvelistV5  →  Official CVE list from GitHub (updated hourly)
 Mistral API           →  Formats + merges all raw data into clean HTML
@@ -22,7 +22,7 @@ SMTP                  →  Delivers the final email
 
 | Step | Source | Purpose |
 |------|--------|---------|
-| 1 | **Perplexity sonar-pro** | Real-time web search for AI news, WordPress vulns, infrastructure vulns |
+| 1 | **Mistral Web Search** | Real-time web search for AI news, WordPress vulns, infrastructure vulns |
 | 2 | **OSV.dev** | Batch API query for structured vulnerability data by ecosystem/package |
 | 3 | **CVEProject/cvelistV5** | Fetches last 24h of CVEs from GitHub, filters by target keywords |
 | 4 | **Mistral mistral-large-latest** | Formats all raw data into 4 HTML email sections |
@@ -31,8 +31,8 @@ SMTP                  →  Delivers the final email
 ### Email Sections
 
 1. **AI Industry News** — Latest developments for tracked AI topics (48h window)
-2. **WordPress Vulnerabilities** — Plugin, theme, and core vulns (Perplexity + cvelistV5)
-3. **Infrastructure & Package Vulnerabilities** — OSV.dev + Perplexity merged, grouped by package
+2. **WordPress Vulnerabilities** — Plugin, theme, and core vulns (Mistral Web Search + cvelistV5)
+3. **Infrastructure & Package Vulnerabilities** — OSV.dev + Mistral Web Search merged, grouped by package
 4. **Official CVE List** — Infrastructure-related CVEs from CVEProject/cvelistV5
 
 ---
@@ -59,12 +59,23 @@ SMTP                  →  Delivers the final email
 | AWS SDK | npm |
 | Azure SDK | npm |
 | Google Cloud | PyPI |
-| Windows 11 | Perplexity only |
+| Windows 11 | Web Search only |
 
 ### CVE Keywords (cvelistV5 matching)
 `linux`, `ubuntu`, `almalinux`, `kernel`, `docker`, `container`, `n8n`, `nginx`, `php`, `mariadb`, `mysql`, `phpmyadmin`, `aws`, `azure`, `windows`, `wordpress`
 
 WordPress-matched CVEs are routed to the WordPress section; all others go to the CVE List section.
+
+---
+
+
+## Data Processing & Security Boundaries
+
+This project uses Mistral's built-in Web Search through the Conversations API. Retrieved web content is treated as **untrusted input**: the research prompt explicitly instructs the model not to follow instructions found in web pages or search results.
+
+OSV.dev and CVEProject/cvelistV5 remain independent structured sources so vulnerability reporting does not rely only on model-driven web research.
+
+> **Data residency note:** this project should not be described as EU-only or as using Mistral EU Regional Inference end-to-end. Built-in Web Search is a separate capability from the EU regional inference path. The workflow is designed for public web research and public vulnerability information; do not place secrets, private logs, customer data, or other sensitive information in the search prompts.
 
 ---
 
@@ -91,7 +102,6 @@ cp .env.example .env
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `MISTRAL_API_KEY` | Yes | Mistral API key from [console.mistral.ai](https://console.mistral.ai) |
-| `PERPLEXITY_API_KEY` | Yes | Perplexity API key from [perplexity.ai](https://www.perplexity.ai) |
 | `SMTP_HOST` | Yes | SMTP server hostname |
 | `SMTP_PORT` | Yes | `587` for STARTTLS, `465` for SSL |
 | `SMTP_USER` | Yes | SMTP login email |
@@ -142,7 +152,7 @@ Per daily run (approximate):
 
 | API | Calls | Notes |
 |-----|-------|-------|
-| Perplexity sonar-pro | 3 requests | AI news, WP vulns, infra vulns |
+| Mistral Web Search | 3 conversations | AI news, WP vulns, infra vulns |
 | OSV.dev | 1 batch request | Free, no API key needed |
 | GitHub API | 1 + N requests | 1 commits list + N CVE JSON fetches (5000 req/hr with token, 60 without) |
 | Mistral mistral-large-latest | 1 request | ~10K max tokens for formatting |
@@ -161,7 +171,7 @@ Edit `AI_TOPICS` list in `ai_news_digest.py`.
 The default list covers common infrastructure (Ubuntu, Docker, Nginx, PHP, MariaDB, AWS, Azure, etc.), but you can add **any software** you use — databases, frameworks, CI/CD tools, cloud services, CMS platforms, or custom packages.
 
 - **OSV.dev packages**: Edit `OSV_TARGETS` — each entry is `(display_name, ecosystem, package)`. Verify the ecosystem and package name exist at [osv.dev](https://osv.dev).
-- **Perplexity-only targets**: Edit `PERPLEXITY_EXTRA_TARGETS` for packages not in OSV.dev (e.g., Windows 11).
+- **Web-search-only targets**: Edit `WEB_SEARCH_EXTRA_TARGETS` for packages not in OSV.dev (e.g., Windows 11).
 - **CVE keyword matching**: Edit `CVE_KEYWORDS` to add/remove keywords matched against cvelistV5 entries.
 - **WordPress routing**: CVEs matching `CVE_WP_KEYWORDS` go to the WordPress section instead of the CVE List section.
 
