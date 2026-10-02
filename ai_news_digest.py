@@ -186,7 +186,7 @@ RESEARCH TASK:
 
 # ── Fetch AI News via Mistral Web Search ──────────────────────────────────────────────
 
-def fetch_ai_news_raw() -> tuple[str, list]:
+def fetch_ai_news_raw() -> str:
     log.info("Fetching AI news via Mistral Web Search...")
     topics = "\n".join(f"- {t}" for t in AI_TOPICS)
     today  = datetime.now().strftime("%B %d, %Y")
@@ -211,7 +211,7 @@ Be factual. Only include real announcements, model releases, API changes, outage
 
 # ── Fetch WordPress Vulns via Mistral Web Search ──────────────────────────────────────
 
-def fetch_wordpress_vulns_raw() -> tuple[str, list]:
+def fetch_wordpress_vulns_raw() -> str:
     log.info("Fetching WordPress vulnerabilities via Mistral Web Search...")
     today = datetime.now().strftime("%B %d, %Y")
 
@@ -237,7 +237,7 @@ Only include confirmed, real vulnerabilities with sources."""
 
 # ── Fetch Infrastructure Vulns via Mistral Web Search ─────────────────────────────────
 
-def fetch_infra_vulns_raw() -> tuple[str, list]:
+def fetch_infra_vulns_raw() -> str:
     log.info("Fetching infrastructure vulnerabilities via Mistral Web Search...")
     today = datetime.now().strftime("%B %d, %Y")
     all_targets = [name for name, _, _ in OSV_TARGETS] + WEB_SEARCH_EXTRA_TARGETS
@@ -280,11 +280,6 @@ def mistral_format_to_html(ai_news_raw: str, ai_citations: list,
     """
     log.info("Sending raw data to Mistral for HTML formatting...")
     client = Mistral(api_key=MISTRAL_API_KEY)
-
-    # Build citation reference strings
-    ai_cite_str = "\n".join(f"- {u}" for u in ai_citations) if ai_citations else "None provided"
-    wp_cite_str = "\n".join(f"- {u}" for u in wp_citations) if wp_citations else "None provided"
-    infra_cite_str = "\n".join(f"- {u}" for u in infra_citations) if infra_citations else "None provided"
 
     prompt = f"""You are an HTML email formatter. Convert the raw research data below into clean HTML sections.
 Do NOT search the web. Do NOT add any information not present in the raw data. Format only.
